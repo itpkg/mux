@@ -9,6 +9,11 @@ import (
 	"github.com/itpkg/log"
 )
 
+type Response struct {
+	Header map[string]string
+	Body []byte
+}
+
 const (
 	MT_XML  = "application/xml"
 	MT_JSON = "application/json"
@@ -16,24 +21,33 @@ const (
 
 type Context struct {
 	Request  *http.Request
-	Response http.ResponseWriter
+	Writer http.ResponseWriter
+	Params map[string]interface {}
+	Response *Response
 	Logger   log.Logger
 }
 
+func (p *Context) Write(){
+	for k, v := range p.Response.Header{
+		p.Writer.Header().Set(k,v)
+	}
+	p.Request.Write(p.Response.Body)
+}
+
 func (p *Context) BYTES(contentType string, body []byte) {
-	wrt := p.Response
+	wrt := p.Writer
 	wrt.Header().Set("Content-Type", contentType)
 	wrt.Write(body)
 }
 
 func (p *Context) JSON(obj interface{}) error {
-	wrt := p.Response
+	wrt := p.Writer
 	wrt.Header().Set("Content-Type", MT_JSON)
 	return json.NewEncoder(wrt).Encode(obj)
 }
 
 func (p *Context) XML(obj interface{}) error {
-	wrt := p.Response
+	wrt := p.Writer
 	wrt.Header().Set("Content-Type", MT_XML)
 	return xml.NewEncoder(wrt).Encode(obj)
 }
@@ -41,7 +55,7 @@ func (p *Context) XML(obj interface{}) error {
 func (p *Context) Abort(code int, err error) {
 	p.Logger.Error(err.Error())
 
-	wrt := p.Response
+	wrt := p.Writer
 	wrt.WriteHeader(code)
 	fmt.Fprintf(wrt, err.Error())
 }
